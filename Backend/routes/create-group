@@ -1,0 +1,27 @@
+app.post("/create-group", async (req, res) => {
+  try {
+    const { groupName, username, members } = req.body;
+
+    const inviteCode = nanoid(6);
+
+    // Always include creator
+    const allMembers = [...new Set([username, ...(members || [])])];
+
+    const newGroup = new Group({
+      name: groupName,
+      inviteCode,
+      members: allMembers
+    });
+
+    await newGroup.save();
+
+    res.json({
+      message: "Project created successfully",
+      group: newGroup
+    });
+
+  } catch (error) {
+    console.log("🔥 Create Group Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
