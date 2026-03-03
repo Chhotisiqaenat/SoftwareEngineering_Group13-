@@ -1,164 +1,115 @@
+require("dotenv").config();
+
 const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const crypto = require("crypto");
-const User = require("../models/User");
 
-const router = express.Router();
+const User = require("./models/User");
 
-/* =========================
-   REGISTER
-========================= */
-router.post("/register", async (req, res) => {
+const app = express();
+
+// ============================
+// MIDDLEWARE
+// ============================
+app.use(cors());
+app.use(express.json());
+
+// ============================
+// DATABASE CONNECTION
+// ============================
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log("✅ MongoDB Connected");
+    console.log("Connected to DB:", mongoose.connection.name);
+  })
+  .catch((err) => {
+    console.log("❌ MongoDB Error:", err);
+  });
+
+// ============================
+// TEST ROUTE
+// ============================
+app.get("/", (req, res) => {
+  res.send("Server is working ✅");
+});
+
+// ============================
+// REGISTER
+// ============================
+app.post("/register", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { firstName, lastName, email, username, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({
-        message: "Email and password are required",
-      });
+    if (!firstName || !lastName || !email || !username || !password) {
+      return res.status(400).json({ message: "All fields are required" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({
+      $or: [{ email }, { username }]
+    });
 
     if (existingUser) {
-      return res.status(400).json({
-        message: "User already exists",
-      });
+      return res.status(400).json({ message: "Email or Username already exists" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new User({
+      firstName,
+      lastName,
       email,
-      password: hashedPassword,
+      username,
+      password: hashedPassword
     });
 
     await newUser.save();
 
-    res.status(201).json({
-      message: "User registered successfully",
-    });
+    res.status(201).json({ message: "User registered successfully" });
 
   } catch (error) {
-    console.error("REGISTER ERROR:", error);
-    res.status(500).json({
-      message: "Server error",
-    });
+    console.log("🔥 Register Error:", error);
+    res.status(500).json({ message: error.message });
   }
 });
 
-/* =========================
-   LOGIN
-========================= */
-router.post("/login", async (req, res) => {
+// ============================
+// LOGIN
+// ============================
+app.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      $or: [{ username }, { email: username }]
+    });
 
     if (!user) {
-      return res.status(400).json({
-        message: "Invalid email or password",
-      });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(400).json({
-        message: "Invalid email or password",
-      });
+      return res.status(400).json({ message: "Invalid email or password" });
     }
-
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
-    res.json({ token });
-
-  } catch (error) {
-    console.error("LOGIN ERROR:", error);
-    res.status(500).json({
-      message: "Server error",
-    });
-  }
-});
-
-/* =========================
-   FORGOT PASSWORD
-========================= */
-router.post("/forgot-password", async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.json({
-        message: "If email exists, reset link sent",
-      });
-    }
-
-    const resetToken = crypto.randomBytes(32).toString("hex");
-
-    user.resetToken = resetToken;
-    user.resetTokenExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-    await user.save();
-
-    console.log(
-      `Reset link: http://localhost:3000/reset/${resetToken}`
-    );
 
     res.json({
-      message: "Reset link sent (check backend console)",
+      message: "Login successful",
+      username: user.username
     });
 
   } catch (error) {
-    console.error("FORGOT PASSWORD ERROR:", error);
-    res.status(500).json({
-      message: "Server error",
-    });
+    console.log("🔥 Login Error:", error);
+    res.status(500).json({ message: error.message });
   }
 });
 
-/* =========================
-   RESET PASSWORD
-========================= */
-router.post("/reset-password/:token", async (req, res) => {
-  try {
-    const user = await User.findOne({
-      resetToken: req.params.token,
-      resetTokenExpire: { $gt: Date.now() },
-    });
+// ============================
+// START SERVER (UPDATED)
+// ============================
+const PORT = 5055;
 
-    if (!user) {
-      return res.status(400).json({
-        message: "Invalid or expired token",
-      });
-    }
-
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
-
-    user.password = hashedPassword;
-    user.resetToken = undefined;
-    user.resetTokenExpire = undefined;
-
-    await user.save();
-
-    res.json({
-      message: "Password updated successfully",
-    });
-
-  } catch (error) {
-    console.error("RESET PASSWORD ERROR:", error);
-    res.status(500).json({
-      message: "Server error",
-    });
-  }
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
-
-module.exports = router;

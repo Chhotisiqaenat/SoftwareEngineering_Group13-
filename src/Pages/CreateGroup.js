@@ -1,93 +1,167 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import Layout from "../components/Layout";
 
-function CreateGroup() {
-  const navigate = useNavigate();
-  const username = localStorage.getItem("username");
-
+function CreateGroup({ refreshProjects }) {
   const [groupName, setGroupName] = useState("");
-  const [memberInput, setMemberInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
   const [members, setMembers] = useState([]);
   const [message, setMessage] = useState("");
 
-  const addMember = () => {
-    if (memberInput && !members.includes(memberInput)) {
-      setMembers([...members, memberInput]);
-      setMemberInput("");
+  const searchUsers = async (value) => {
+    setSearchQuery(value);
+
+    if (!value) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:5055/search-users?query=${value}`
+      );
+
+      const data = await response.json();
+      setSearchResults(data);
+    } catch (error) {
+      console.log("Search error:", error);
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const addMember = (user) => {
+    if (!members.find((m) => m._id === user._id)) {
+      setMembers([...members, user]);
+    }
+  };
 
-    const response = await fetch("http://localhost:5055/create-group", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        groupName,
-        username,
-        members
-      })
-    });
+  const removeMember = (userId) => {
+    setMembers(members.filter((m) => m._id !== userId));
+  };
 
-    const data = await response.json();
+  const handleCreate = async () => {
+    if (!groupName) {
+      setMessage("Please enter a project name.");
+      return;
+    }
 
-    if (response.ok) {
-      setMessage("Project created successfully ✅");
+    try {
+      const response = await fetch(
+        "http://localhost:5055/create-group",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            groupName,
+            members: members.map((m) => m._id),
+            username: localStorage.getItem("username")
+          })
+        }
+      );
 
-      // After short delay, go back to dashboard
-      setTimeout(() => {
-        navigate("/dashboard");
-      }, 1000);
+      const data = await response.json();
+
+      if (response.ok) {
+        setMessage("✅ Project successfully created!");
+
+        // 🔥 THIS updates sidebar instantly
+        if (refreshProjects) {
+          refreshProjects();
+        }
+
+        // Clear form
+        setGroupName("");
+        setSearchQuery("");
+        setSearchResults([]);
+        setMembers([]);
+
+      } else {
+        setMessage(data.message);
+      }
+
+    } catch (error) {
+      setMessage("Server error");
     }
   };
 
   return (
-    <Layout>
+    <div style={{ padding: "40px" }}>
       <h2>Create New Project</h2>
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Project Name</label>
-          <br />
-          <input
-            type="text"
-            value={groupName}
-            onChange={(e) => setGroupName(e.target.value)}
-            required
-          />
-        </div>
+      <input
+        type="text"
+        placeholder="Project Name"
+        value={groupName}
+        onChange={(e) => setGroupName(e.target.value)}
+        style={styles.input}
+      />
 
-        <div style={{ marginTop: "20px" }}>
-          <label>Add Members (username)</label>
-          <br />
-          <input
-            type="text"
-            value={memberInput}
-            onChange={(e) => setMemberInput(e.target.value)}
-          />
-          <button type="button" onClick={addMember}>
+      <input
+        type="text"
+        placeholder="Search username..."
+        value={searchQuery}
+        onChange={(e) => searchUsers(e.target.value)}
+        style={styles.input}
+      />
+
+      {searchResults.map((user) => (
+        <div key={user._id} style={styles.searchResult}>
+          {user.username}
+          <button
+            style={styles.addButton}
+            onClick={() => addMember(user)}
+          >
             Add
           </button>
         </div>
+      ))}
 
-        <div style={{ marginTop: "10px" }}>
-          {members.map((member, index) => (
-            <div key={index}>{member}</div>
-          ))}
+      <h4>Members:</h4>
+      {members.map((member) => (
+        <div key={member._id} style={styles.memberRow}>
+          {member.username}
+          <button
+            style={styles.removeButton}
+            onClick={() => removeMember(member._id)}
+          >
+            Remove
+          </button>
         </div>
+      ))}
 
-        <button style={{ marginTop: "20px" }} type="submit">
-          Done
-        </button>
-      </form>
+      <button onClick={handleCreate} style={styles.primaryButton}>
+        Create Project
+      </button>
 
       {message && (
-        <p style={{ marginTop: "20px", color: "green" }}>{message}</p>
+        <p style={{ marginTop: "20px", fontWeight: "bold" }}>
+          {message}
+        </p>
       )}
-    </Layout>
+    </div>
   );
 }
+
+const styles = {
+  input: {
+    display: "block",
+    margin: "15px 0",
+    padding: "10px",
+    width: "300px",
+    borderRadius: "6px",
+    border: "1px solid #ccc"
+  },
+  searchResult: { marginBottom: "10px" },
+  memberRow: { marginBottom: "8px" },
+  addButton: { marginLeft: "10px", cursor: "pointer" },
+  removeButton: { marginLeft: "10px", cursor: "pointer", color: "red" },
+  primaryButton: {
+    marginTop: "20px",
+    padding: "10px 20px",
+    backgroundColor: "#2563eb",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer"
+  }
+};
 
 export default CreateGroup;

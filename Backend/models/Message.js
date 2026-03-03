@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const availabilitySchema = new mongoose.Schema({
+const messageSchema = new mongoose.Schema({
   groupId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Group",
@@ -11,10 +11,11 @@ const availabilitySchema = new mongoose.Schema({
     ref: "User",
     required: true
   },
-  slots: {
-    type: [String], // ["Monday-6", "Tuesday-8"]
-    default: []
+  text: String,
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
-module.exports = mongoose.model("Availability", availabilitySchema);
+module.exports = mongoose.model("Message", messageSchema);

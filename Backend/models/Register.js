@@ -35,7 +35,7 @@ app.get("/", (req, res) => {
 });
 
 // ============================
-// REGISTER (OLD WORKING VERSION)
+// REGISTER
 // ============================
 app.post("/register", async (req, res) => {
   try {
@@ -74,7 +74,7 @@ app.post("/register", async (req, res) => {
 });
 
 // ============================
-// LOGIN (OLD WORKING VERSION)
+// LOGIN
 // ============================
 app.post("/login", async (req, res) => {
   try {
@@ -106,9 +106,9 @@ app.post("/login", async (req, res) => {
 });
 
 // ============================
-// START SERVER
+// START SERVER (UPDATED PORT)
 // ============================
-const PORT = process.env.PORT || 5055;
+const PORT = 5055;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

@@ -1,41 +1,107 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 function JoinGroup() {
-  const navigate = useNavigate();
   const username = localStorage.getItem("username");
+
   const [inviteCode, setInviteCode] = useState("");
+  const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleJoin = async () => {
+    if (!inviteCode) {
+      setMessage("Please enter an invite code.");
+      return;
+    }
 
-    const response = await fetch("http://localhost:5055/join-group", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ inviteCode, username })
-    });
+    try {
+      const response = await fetch(
+        "http://localhost:5055/join-group",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            inviteCode,
+            username
+          })
+        }
+      );
 
-    const data = await response.json();
+      const data = await response.json();
 
-    navigate(`/group/${data._id}`);
+      if (response.ok) {
+        setMessage("✅ Successfully joined project!");
+        setInviteCode("");
+
+        // refresh page so sidebar updates
+        window.location.reload();
+      } else {
+        setMessage(data.message);
+      }
+
+    } catch (error) {
+      setMessage("Server error.");
+    }
   };
 
   return (
-    <div style={{ padding: "40px" }}>
-      <h2>Join Group</h2>
+    <div style={styles.container}>
+      <div style={styles.card}>
+        <h2>Join Project</h2>
 
-      <form onSubmit={handleSubmit}>
         <input
           type="text"
-          placeholder="Invite Code"
+          placeholder="Enter invite code"
           value={inviteCode}
           onChange={(e) => setInviteCode(e.target.value)}
-          required
+          style={styles.input}
         />
-        <button type="submit">Join</button>
-      </form>
+
+        <button onClick={handleJoin} style={styles.button}>
+          Join
+        </button>
+
+        {message && (
+          <p style={{ marginTop: "15px", fontWeight: "bold" }}>
+            {message}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
+
+const styles = {
+  container: {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "60vh"
+  },
+  card: {
+    width: "400px",
+    padding: "30px",
+    borderRadius: "12px",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.08)"
+  },
+  input: {
+    width: "100%",
+    padding: "12px",
+    marginTop: "15px",
+    borderRadius: "6px",
+    border: "1px solid #ccc"
+  },
+  button: {
+    width: "100%",
+    padding: "12px",
+    marginTop: "15px",
+    backgroundColor: "#10b981",
+    color: "white",
+    border: "none",
+    borderRadius: "6px",
+    cursor: "pointer"
+  }
+};
 
 export default JoinGroup;

@@ -17,7 +17,7 @@ function Login() {
     }
 
     try {
-      const response = await fetch("http://localhost:5055/login", {
+      const response = await fetch("http://localhost:5055/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
@@ -28,7 +28,6 @@ function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        // 🔥 STORE USERNAME FOR ACCOUNT PAGE
         localStorage.setItem("username", data.username);
 
         setMessage("Login successful! Redirecting...");

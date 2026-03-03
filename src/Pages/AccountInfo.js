@@ -1,160 +1,270 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./AccountInfo.css";
 
 function AccountInfo() {
   const navigate = useNavigate();
 
   const [user, setUser] = useState(null);
-  const [error, setError] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [message, setMessage] = useState("");
 
+  // 🔐 Password states
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+
+  const username = localStorage.getItem("username");
+
   useEffect(() => {
-    const username = localStorage.getItem("username");
-
     if (!username) {
-      setError("No user logged in. Please login again.");
+      setMessage("Please login first.");
       return;
     }
 
-    fetch("http://localhost:5055/user/" + username)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("User not found");
+    const fetchUser = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:5055/user/${username}`
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          setUser(data);
+        } else {
+          setMessage(data.message);
         }
-        return res.json();
-      })
-      .then((data) => {
-        setUser(data);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("Failed to load user information.");
-      });
 
-  }, []);
+      } catch (error) {
+        setMessage("Cannot connect to server");
+      }
+    };
 
-  const handlePasswordChange = async () => {
-    if (!newPassword || newPassword.length < 6) {
-      setMessage("Password must be at least 6 characters.");
+    fetchUser();
+  }, [username]);
+
+  // ================= CHANGE PASSWORD =================
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setPasswordMessage("Please fill all fields.");
       return;
     }
 
-    const username = localStorage.getItem("username");
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage("New passwords do not match.");
+      return;
+    }
 
     try {
-      const response = await fetch("http://localhost:5055/change-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          username,
-          newPassword
-        })
-      });
+      const response = await fetch(
+        "http://localhost:5055/change-password",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username,
+            currentPassword,
+            newPassword
+          })
+        }
+      );
 
       const data = await response.json();
 
       if (response.ok) {
-        setMessage("Password updated successfully!");
+        setPasswordMessage("✅ Password successfully changed!");
+        setCurrentPassword("");
         setNewPassword("");
+        setConfirmPassword("");
       } else {
-        setMessage(data.message);
+        setPasswordMessage(data.message);
       }
 
     } catch (error) {
-      setMessage("Error updating password.");
+      setPasswordMessage("Server error.");
     }
   };
 
-  if (error) {
+  if (!username) {
     return (
-      <div style={styles.container}>
-        <h2>{error}</h2>
-        <button onClick={() => navigate("/")}>Return to Login</button>
+      <div style={styles.centerContainer}>
+        <h3>Please login again.</h3>
+        <button style={styles.primaryButton} onClick={() => navigate("/")}>
+          Go to Login
+        </button>
       </div>
     );
+  }
+
+  if (message) {
+    return <div style={styles.centerContainer}>{message}</div>;
   }
 
   if (!user) {
-    return (
-      <div style={styles.container}>
-        <h2>Loading...</h2>
-      </div>
-    );
+    return <div style={styles.centerContainer}>Loading user info...</div>;
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.pageContainer}>
       <div style={styles.card}>
-        <h2>Account Information</h2>
+        {/* Profile Section */}
+        <div style={styles.headerSection}>
+          <div style={styles.avatar}>
+            {user.firstName?.charAt(0).toUpperCase()}
+          </div>
+          <h2 style={{ marginBottom: "5px" }}>
+            {user.firstName} {user.lastName}
+          </h2>
+          <p style={styles.usernameText}>@{user.username}</p>
+        </div>
 
-        <p><strong>First Name:</strong> {user.firstName}</p>
-        <p><strong>Last Name:</strong> {user.lastName}</p>
-        <p><strong>Email:</strong> {user.email}</p>
-        <p><strong>Username:</strong> {user.username}</p>
+        <div style={styles.infoSection}>
+          <div style={styles.infoRow}>
+            <span style={styles.label}>First Name</span>
+            <span style={styles.value}>{user.firstName}</span>
+          </div>
 
-        <hr style={{ margin: "20px 0" }} />
+          <div style={styles.infoRow}>
+            <span style={styles.label}>Last Name</span>
+            <span style={styles.value}>{user.lastName}</span>
+          </div>
 
-        <h3>Change Password</h3>
+          <div style={styles.infoRow}>
+            <span style={styles.label}>Email</span>
+            <span style={styles.value}>{user.email}</span>
+          </div>
 
-        <input
-          type="password"
-          placeholder="Enter New Password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          style={styles.input}
-        />
+          <div style={styles.infoRow}>
+            <span style={styles.label}>Username</span>
+            <span style={styles.value}>{user.username}</span>
+          </div>
+        </div>
 
-        <button
-          onClick={handlePasswordChange}
-          style={styles.button}
-        >
-          Update Password
-        </button>
+        {/* 🔐 Change Password Section */}
+        <div style={styles.passwordSection}>
+          <h3>Change Password</h3>
 
-        {message && <p style={styles.message}>{message}</p>}
+          <input
+            type="password"
+            placeholder="Current Password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            style={styles.input}
+          />
+
+          <input
+            type="password"
+            placeholder="New Password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            style={styles.input}
+          />
+
+          <input
+            type="password"
+            placeholder="Confirm New Password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            style={styles.input}
+          />
+
+          <button
+            style={styles.primaryButton}
+            onClick={handleChangePassword}
+          >
+            Change Password
+          </button>
+
+          {passwordMessage && (
+            <p style={{ marginTop: "10px", fontWeight: "bold" }}>
+              {passwordMessage}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  container: {
+  pageContainer: {
+    minHeight: "100vh",
+    backgroundColor: "#f3f4f6",
     display: "flex",
     justifyContent: "center",
     alignItems: "center",
-    height: "100vh",
-    backgroundColor: "#f4f6f9"
+    padding: "40px"
+  },
+  centerContainer: {
+    minHeight: "100vh",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "column"
   },
   card: {
-    width: "400px",
-    padding: "30px",
+    width: "450px",
     backgroundColor: "#ffffff",
-    borderRadius: "8px",
-    boxShadow: "0 5px 15px rgba(0,0,0,0.1)"
+    borderRadius: "12px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.08)",
+    padding: "40px"
+  },
+  headerSection: {
+    textAlign: "center",
+    marginBottom: "30px"
+  },
+  avatar: {
+    width: "70px",
+    height: "70px",
+    borderRadius: "50%",
+    backgroundColor: "#2563eb",
+    color: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: "28px",
+    fontWeight: "bold",
+    margin: "0 auto 15px auto"
+  },
+  usernameText: {
+    color: "#6b7280",
+    fontSize: "14px"
+  },
+  infoSection: {
+    marginTop: "20px"
+  },
+  infoRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "12px 0",
+    borderBottom: "1px solid #e5e7eb"
+  },
+  label: {
+    fontWeight: "600",
+    color: "#374151"
+  },
+  value: {
+    color: "#111827"
+  },
+  passwordSection: {
+    marginTop: "40px"
   },
   input: {
+    display: "block",
     width: "100%",
     padding: "10px",
-    margin: "10px 0",
-    borderRadius: "5px",
+    marginBottom: "10px",
+    borderRadius: "6px",
     border: "1px solid #ccc"
   },
-  button: {
-    width: "100%",
-    padding: "10px",
-    backgroundColor: "#2c7be5",
-    color: "white",
+  primaryButton: {
+    padding: "10px 20px",
+    borderRadius: "6px",
     border: "none",
-    borderRadius: "5px",
-    cursor: "pointer"
-  },
-  message: {
-    marginTop: "15px",
-    fontWeight: "bold"
+    backgroundColor: "#2563eb",
+    color: "white",
+    cursor: "pointer",
+    marginTop: "5px"
   }
 };
 
